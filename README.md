@@ -3,54 +3,99 @@
 Hammal 是运行于 cloudflare workers 上的 Docker 镜像加速工具，用于解决获取 Docker 官方镜像速度缓慢以及完全无法获取 k8s.gcr.io 上镜像的问题。
 
 ### 食用方式
+1. Git clone
+    ```
+    git clone https://github.com/tomwei7/hammal.git
+    cd hammal
+    ```
 
-首先安装 wrangler 命令行工具 https://developers.cloudflare.com/workers/cli-wrangler/install-update
+1. 安装 wrangler 命令行工具 https://developers.cloudflare.com/workers/cli-wrangler/install-update
 
-```
-git clone https://github.com/tomwei7/hammal.git
-cd hammal
-mv wrangler.toml.sample wrangler.toml
+    TL;DR
+    ```
+    # Respect to Cloudflare Doc 
+    # Wrangler is installed locally into each of your projects 
 
-# 获取 account_id id
-wrangler whoami
+    npm install wrangler --save-dev
+    ```
 
-# 创建 KV namespace
-wrangler kv:namespace create hammal_cache
+1. 创建worker配置并登录wrangler cmd
+    ```
+    mv wrangler.toml.sample wrangler.toml
 
-```
+    # 登录
+    npx wrangler login
+    # 验证登录成功
+    npx wrangler whoami
+    ```
 
-修改 wrangler.toml 文件填充 account_id 与 kv_namespaces 中的 id
+1.  从 Cloudflare 的`Workers & Pages`页面新建worker并获取`Account ID`  
+    修改 `wrangler.toml` 文件填充 account_id
+    ```toml
+    ...
+    account_id = "your account_id"
+    ...
+    ```
 
-```toml
-name = "hammal"
-type = "webpack"
-account_id = "your account_id"
-workers_dev = true
-route = ""
-zone_id = ""
-webpack_config = "webpack.config.js"
-kv_namespaces = [
-	 { binding = "HAMMAL_CACHE", id = "you kv id" }
-]
-```
+1. 创建 KV namespace
+    ```
+    npx wrangler kv namespace create hammal_cache
+    ```
+    修改 `wrangler.toml` 文件 kv_namespaces 中的 id
+    ```toml
+    ...
+    kv_namespaces = [
+      { binding = "HAMMAL_CACHE", id = "you kv id" }
+    ]
+    ...
+    ```
 
-发布 workers
+1. 发布 workers
 
-```
-wrangler publish
-```
+    ```
+    npx wrangler deploy
+    ```
 
-发布 workers 可以获得类似 https://hammal.{your_name}.workers.dev  的地址，修改 registry-mirrors 地址为该地址即可
+    发布 workers 可以获得类似 https://hammal.{your_name}.workers.dev  的地址，修改 registry-mirrors 地址为该地址即可
 
-```
-<<EOF sudo tee /etc/docker/daemon.json
-{
-  "registry-mirrors": [
-    "https://hammal.{your_name}.workers.dev"
-  ]
-}
-EOF
-```
+    ```
+    <<EOF sudo tee /etc/docker/daemon.json
+    {
+      "registry-mirrors": [
+        "https://hammal.{your_name}.workers.dev"
+      ]
+    }
+    EOF
+    ```
+
+1. (Optional) 设置 Cloudflare Custom Domain For Worker
+
+    1. 进入 Cloudflare 的`Websites`选择要使用的域名，在`DNS`.`Records`，增加一个`CNAME`
+
+        |Type|Name|Content|Proxy status|
+        |-|-|-|-|
+        |CNAME|your subdomain name eg. `docker-store`|worker.dev domain got in previous STEP eg. `hammal.{your_name}.workers.dev`|Proxied|
+
+    1. 在上一步相同页面 `Workers Routes`.`Add Route`
+        |Route|Worker|
+        |-|-|
+        |subdomain.your domain/* eg. `docker-store.{your doamin}/*`|hammal|
+
+1. (Optional) 设置本地Docker使用指定Mirror
+    1. Linux
+
+        编辑`/etc/docker/daemon.json`增加配置
+        ```json
+        {
+          "registry-mirrors": [
+            "https://docker-store.{your doamin}"
+          ]
+        }
+        ```
+        重启docker daemon
+        ```bash
+        sudo systemctl restart docker
+        ```
 
 ### 获取其他镜像源镜像
 
